@@ -1,61 +1,14 @@
-python_example
+ColorMapPyer: Map scalars to colors
 ==============
 
-[![Gitter][gitter-badge]][gitter-link]
-
-|      CI              | status |
-|----------------------|--------|
-| Linux/macOS Travis   | [![Travis-CI][travis-badge]][travis-link] |
-| MSVC 2019            | [![AppVeyor][appveyor-badge]][appveyor-link] |
-| conda.recipe         | [![Conda Actions Status][actions-conda-badge]][actions-conda-link] |
-| pip builds           | [![Pip Actions Status][actions-pip-badge]][actions-pip-link] |
-| [`cibuildwheel`][]   | [![Wheels Actions Status][actions-wheels-badge]][actions-wheels-link] |
-
-[gitter-badge]:            https://badges.gitter.im/pybind/Lobby.svg
-[gitter-link]:             https://gitter.im/pybind/Lobby
-[actions-badge]:           https://github.com/pybind/python_example/workflows/Tests/badge.svg
-[actions-conda-link]:      https://github.com/pybind/python_example/actions?query=workflow%3A%22Conda
-[actions-conda-badge]:     https://github.com/pybind/python_example/workflows/Conda/badge.svg
-[actions-pip-link]:        https://github.com/pybind/python_example/actions?query=workflow%3A%22Pip
-[actions-pip-badge]:       https://github.com/pybind/python_example/workflows/Pip/badge.svg
-[actions-wheels-link]:     https://github.com/pybind/python_example/actions?query=workflow%3AWheels
-[actions-wheels-badge]:    https://github.com/pybind/python_example/workflows/Wheels/badge.svg
-[travis-link]:             https://travis-ci.org/pybind/python_example
-[travis-badge]:            https://travis-ci.org/pybind/python_example.svg?branch=master&status=passed
-[appveyor-link]:           https://ci.appveyor.com/project/wjakob/python-example
-<!-- TODO: get a real badge link for appveyor -->
-[appveyor-badge]:          https://travis-ci.org/pybind/python_example.svg?branch=master&status=passed
-
-An example project built with [pybind11](https://github.com/pybind/pybind11).
-This requires Python 3.7+; for older versions of Python, check the commit
-history.
+This Python package can be used to map a scalar array to categorical colors using a colormap. This is
+intended as a quick workaround for performance issue with VTK's support for categorical colors.
 
 Installation
 ------------
 
  - clone this repository
- - `pip install ./python_example`
-
-CI Examples
------------
-
-There are examples for CI in `.github/workflows`. A simple way to produces
-binary "wheels" for all platforms is illustrated in the "wheels.yml" file,
-using [`cibuildwheel`][]. You can also see a basic recipe for building and
-testing in `pip.yml`, and `conda.yml` has an example of a conda recipe build.
-
-
-Building the documentation
---------------------------
-
-Documentation for the example project is generated using Sphinx. Sphinx has the
-ability to automatically inspect the signatures and documentation strings in
-the extension module to generate beautiful documentation in a variety formats.
-The following command generates HTML-based reference documentation; for other
-formats please refer to the Sphinx manual:
-
- - `cd python_example/docs`
- - `make html`
+ - `pip install ./colormappyer`
 
 License
 -------
@@ -68,8 +21,24 @@ Test call
 ---------
 
 ```python
-import python_example
-python_example.add(1, 2)
+import numpy
+import color_mappyer
+
+# generate an array with 100 million elements
+# filled with random values between 0 and 1024
+data = numpy.random.randint(0, 1024, 1000000000, dtype=numpy.int32)
+
+# generate a color map with 1024 entries
+# color map with tuples of (value, r, g, b) where value is data.dtype and r, g, b are uint8
+colormap = numpy.array([],
+            dtype=[('value', data.dtype), ('r', numpy.uint8), ('g', numpy.uint8), ('b', numpy.uint8), ('a', numpy.uint8)])
+for i in range(1024):
+    colormap = numpy.append(colormap,
+        numpy.array([(i, i % 256, (i // 256) % 256, (i // 65536) % 256, 255)],
+        dtype=colormap.dtype))
+
+print(colormap)
+result = color_mappyer.map_categorical_colors(data, colormap)
 ```
 
 [`cibuildwheel`]:          https://cibuildwheel.readthedocs.io

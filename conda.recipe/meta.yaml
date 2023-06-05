@@ -1,5 +1,5 @@
 package:
-  name: python_example
+  name: color_mappyer
   version: 0.0.1
 
 source:
@@ -17,6 +17,7 @@ requirements:
     - python
     - pip
     - pybind11 >=2.10.0
+    - numpy
 
   run:
     - python
@@ -24,12 +25,12 @@ requirements:
 
 test:
   imports:
-    - python_example
+    - color_mappyer
   source_files:
     - tests
   commands:
     - python tests/test.py
 
 about:
-  summary: An example project built with pybind11.
+  summary: Map scalars to colors
   license_file: LICENSE
