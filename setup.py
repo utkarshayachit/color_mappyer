@@ -17,7 +17,7 @@ setup(
     name="color_mappyer",
     version=__version__,
     author="Utkarsh Ayachit",
-    url="https://github.com/utkarshayachit/colormappyer.git",
+    url="https://github.com/utkarshayachit/color_mappyer.git",
     description="Python package to map NumPy scalar arrays to colors",
     long_description="",
     ext_modules=ext_modules,

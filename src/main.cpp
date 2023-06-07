@@ -1,89 +1,98 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <pybind11/stl.h>
 
 #include <unordered_map>
 
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
 
-struct color_t
-{
-    std::uint8_t r;
-    std::uint8_t g;
-    std::uint8_t b;
-    std::uint8_t a;
-    color_t() : r(0), g(0), b(0), a(0) {}
-    color_t(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a) : r(r), g(g), b(b), a(a) {}
-};
-
-template <typename T>
-struct colormap_t {
-    T value;
-    std::uint8_t r;
-    std::uint8_t g;
-    std::uint8_t b;
-    std::uint8_t a;
-};
-
 namespace py = pybind11;
 
+/// Map categorical values to colors. For any value not in the colormap, the `nan_color` is used.
+/// @param data The data to map (ndim == 1, shape == (data_size,))
+/// @param values The values in the colormap (ndim == 1, shape == (N,))
+/// @param colors The colors in the colormap (ndim == 2, shape == (N, 4))
+/// @param nan_color The color to use for values not in the colormap
+/// @return The mapped colors (ndim == 2, shape == (data_size, 4))
 template <typename T>
-py::array_t<color_t> map_categorical_colors(const py::array_t<T>& input, const py::array_t<colormap_t<T>>& colormap, const color_t& nan_color = color_t(0, 0, 0, 0)) {
+py::array_t<std::uint8_t> map_categorical_colors(const py::array_t<T>& data,
+    const py::array_t<T>& values, const py::array_t<std::uint8_t>& colors,
+    const std::array<std::uint8_t, 4>& nan_color = {0, 0, 0, 0}) {
+
+    // validate the inputs
+    auto data_buf = data.request();
+    if (data_buf.ndim != 1) {
+        throw std::runtime_error("Number of dimensions for `data` must be one");
+    }
+
+    auto values_buf = values.request();
+    if (values_buf.ndim != 1) {
+        throw std::runtime_error("Number of dimensions for `values` must be one");
+    }
+
+    auto colors_buf = colors.request();
+    if (colors_buf.ndim != 2) {
+        throw std::runtime_error("Number of dimensions for `colors` must be two");
+    }
+
+    if (colors_buf.shape[1] != 4) {
+        throw std::runtime_error("Number of columns for `colors` must be four");
+    }
+
+    if (colors_buf.shape[0] != values_buf.shape[0]) {
+        throw std::runtime_error("Number of rows for `colors` must match number of rows for `values`");
+    }
 
     // Create a map from the colormap to speed up the lookup
-    std::unordered_map<T, color_t> colormap_map;
-    auto colormap_buf = colormap.request();
-    if (colormap_buf.ndim != 1) {
-        throw std::runtime_error("Number of dimensions for `colormap` must be one");
+    std::unordered_map<T, std::array<std::uint8_t, 4>> colormap;
+
+    auto values_ptr = static_cast<T*>(values_buf.ptr);
+    auto colors_ptr = static_cast<std::uint8_t*>(colors_buf.ptr);
+    for (size_t idx = 0; idx < static_cast<size_t>(values_buf.shape[0]); idx++) {
+        colormap[values_ptr[idx]] = {
+            colors_ptr[idx * 4 + 0],
+            colors_ptr[idx * 4 + 1],
+            colors_ptr[idx * 4 + 2],
+            colors_ptr[idx * 4 + 3],
+        };
     }
 
-    auto colormap_ptr = static_cast<colormap_t<T>*>(colormap_buf.ptr);
-    for (size_t idx = 0; idx < colormap_buf.shape[0]; ++idx) {
-        const auto& item = colormap_ptr[idx];
-        colormap_map[colormap_ptr[idx].value] = color_t(item.r, item.g, item.b, item.a);
+    // Create the output array (shape == (data_size, 4))
+    auto result = py::array_t<std::uint8_t>(data_buf.size * 4).reshape({static_cast<int>(data_buf.size), 4});
+
+    // map the data
+    auto data_ptr = static_cast<T*>(data_buf.ptr);
+    auto result_ptr = static_cast<std::uint8_t*>(result.request().ptr);
+    for (size_t idx = 0; idx < static_cast<size_t>(data_buf.size); idx++) {
+        auto it = colormap.find(data_ptr[idx]);
+        if (it != colormap.end()) {
+            std::copy(it->second.begin(), it->second.end(), result_ptr + idx * 4);
+        } else {
+            std::copy(nan_color.begin(), nan_color.end(), result_ptr + idx * 4);
+        }
     }
 
-    // now to the mapping.
-    auto buf = input.request();
-    if (buf.ndim != 1) {
-        throw std::runtime_error("Number of dimensions for `input` must be one");
-    }
-
-    auto ptr = static_cast<T*>(buf.ptr);
-    auto result = py::array_t<color_t>(buf.size);
-    auto result_buf = result.request();
-    auto result_ptr = static_cast<color_t*>(result_buf.ptr);
-    for (size_t idx = 0; idx < buf.shape[0]; idx++) {
-        auto it = colormap_map.find(ptr[idx]);
-        result_ptr[idx] = it != colormap_map.end() ? it->second : nan_color;
-    }
     return result;
 }
 
-#define TS_OVERLOAD(_type) \
-    [](const py::array_t<_type>& input, const py::array_t<colormap_t<_type>>& colormap) { \
-        py::print("type: ", #_type); \
-        return map_categorical_colors(input, colormap); \
+#define TS_OVERLOAD(T) \
+    [](const py::array_t<T>& data,  \
+        const py::array_t<T>& values, const py::array_t<std::uint8_t>& colors) { \
+        py::print("type: ", #T); \
+        return map_categorical_colors(data, values, colors); \
     }
 
 #define TS(_type) \
-    m.def("map_categorical_colors", TS_OVERLOAD(_type), py::arg().noconvert(), py::arg().noconvert(false), R"pbdoc(     \
+    m.def("map_categorical_colors", TS_OVERLOAD(_type), \
+        py::arg().noconvert(), \
+        py::arg().noconvert(), \
+        py::arg().noconvert(), \
+        R"pbdoc(     \
         Map numpy scalar array to colors using a colormap \
     )pbdoc");
 
 PYBIND11_MODULE(color_mappyer, m) {
-    PYBIND11_NUMPY_DTYPE(color_t, r, g, b, a);
-    PYBIND11_NUMPY_DTYPE(colormap_t<std::uint8_t>, value, r, g, b, a);
-    PYBIND11_NUMPY_DTYPE(colormap_t<std::uint16_t>, value, r, g, b, a);
-    PYBIND11_NUMPY_DTYPE(colormap_t<std::uint32_t>, value, r, g, b, a);
-    PYBIND11_NUMPY_DTYPE(colormap_t<std::uint64_t>, value, r, g, b, a);
-    PYBIND11_NUMPY_DTYPE(colormap_t<std::int8_t>, value, r, g, b, a);
-    PYBIND11_NUMPY_DTYPE(colormap_t<std::int16_t>, value, r, g, b, a);
-    PYBIND11_NUMPY_DTYPE(colormap_t<std::int32_t>, value, r, g, b, a);
-    PYBIND11_NUMPY_DTYPE(colormap_t<std::int64_t>, value, r, g, b, a);
-    PYBIND11_NUMPY_DTYPE(colormap_t<float>, value, r, g, b, a);
-    PYBIND11_NUMPY_DTYPE(colormap_t<double>, value, r, g, b, a);
-
     m.doc() = R"pbdoc(
         Color Mapper
         -----------------------
