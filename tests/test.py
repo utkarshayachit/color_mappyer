@@ -10,7 +10,7 @@ data = numpy.random.randint(0, 1024, 1000000, dtype=numpy.int32)
 scalars = numpy.linspace(0, 1023, 1024, dtype=data.dtype)
 colors = numpy.random.randint(0, 256, (1024, 4), dtype=numpy.uint8)
 
-r = color_mappyer.map_categorical_colors(data, scalars, colors)
+r = color_mappyer.discrete(data, scalars, colors)
 print(data)
 print(scalars)
 print(colors)

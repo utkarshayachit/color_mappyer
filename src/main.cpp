@@ -16,7 +16,7 @@ namespace py = pybind11;
 /// @param nan_color The color to use for values not in the colormap
 /// @return The mapped colors (ndim == 2, shape == (data_size, 4))
 template <typename T>
-py::array_t<std::uint8_t> map_categorical_colors(const py::array_t<T>& data,
+py::array_t<std::uint8_t> discrete(const py::array_t<T>& data,
     const py::array_t<T>& values, const py::array_t<std::uint8_t>& colors,
     const std::array<std::uint8_t, 4>& nan_color = {0, 0, 0, 0}) {
 
@@ -80,11 +80,11 @@ py::array_t<std::uint8_t> map_categorical_colors(const py::array_t<T>& data,
     [](const py::array_t<T>& data,  \
         const py::array_t<T>& values, const py::array_t<std::uint8_t>& colors) { \
         py::print("type: ", #T); \
-        return map_categorical_colors(data, values, colors); \
+        return discrete(data, values, colors); \
     }
 
 #define TS(_type) \
-    m.def("map_categorical_colors", TS_OVERLOAD(_type), \
+    m.def("discrete", TS_OVERLOAD(_type), \
         py::arg().noconvert(), \
         py::arg().noconvert(), \
         py::arg().noconvert(), \
@@ -102,7 +102,7 @@ PYBIND11_MODULE(color_mappyer, m) {
         .. autosummary::
            :toctree: _generate
 
-           map_categorical_colors
+           discrete
     )pbdoc";
 
     TS(std::uint8_t);
