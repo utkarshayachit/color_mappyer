@@ -1,6 +1,8 @@
 color_mappyer: Map scalars to colors
 ==============
 
+[![Pip](https://github.com/utkarshayachit/color_mappyer/actions/workflows/pip.yml/badge.svg?branch=main)](https://github.com/utkarshayachit/color_mappyer/actions/workflows/pip.yml)
+
 This Python package can be used to map a scalar array to categorical colors using a colormap. This is
 intended as a quick workaround for performance issue with VTK's support for categorical colors.
 
