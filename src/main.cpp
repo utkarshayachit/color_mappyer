@@ -79,7 +79,6 @@ py::array_t<std::uint8_t> discrete(const py::array_t<T>& data,
 #define TS_OVERLOAD(T) \
     [](const py::array_t<T>& data,  \
         const py::array_t<T>& values, const py::array_t<std::uint8_t>& colors) { \
-        py::print("type: ", #T); \
         return discrete(data, values, colors); \
     }
 
